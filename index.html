@@ -3,29 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>3D Minecraft Style World</title>
+    <title>Minecraft Castle World</title>
     <style>
         body {
             margin: 0;
             overflow: hidden;
             touch-action: none;
-            background-color: #87CEEB;
+            background-color: #fca048;
             font-family: sans-serif;
         }
         canvas {
             display: block;
         }
-        /* Mobil İdarəetmə Düymələri */
         #joystick-zone {
             position: absolute;
             bottom: 30px;
             left: 30px;
             width: 120px;
             height: 120px;
-            background: rgba(255, 255, 255, 0.2);
-            border: 2px solid rgba(255, 255, 255, 0.5);
+            background: rgba(255, 255, 255, 0.25);
+            border: 2px solid rgba(255, 255, 255, 0.6);
             border-radius: 50%;
             touch-action: none;
+            z-index: 10;
         }
         #joystick-knob {
             position: absolute;
@@ -33,7 +33,7 @@
             left: 35px;
             width: 50px;
             height: 50px;
-            background: rgba(255, 255, 255, 0.8);
+            background: rgba(255, 255, 255, 0.9);
             border-radius: 50%;
         }
         #touch-look {
@@ -42,17 +42,19 @@
             right: 0;
             width: 50vw;
             height: 100vh;
+            z-index: 5;
         }
         #crosshair {
             position: absolute;
             top: 50%;
             left: 50%;
-            width: 10px;
-            height: 10px;
+            width: 12px;
+            height: 12px;
             color: white;
-            font-size: 20px;
+            font-size: 22px;
             transform: translate(-50%, -50%);
             pointer-events: none;
+            z-index: 10;
         }
     </style>
 </head>
@@ -62,128 +64,197 @@
     <div id="joystick-zone"><div id="joystick-knob"></div></div>
     <div id="touch-look"></div>
 
-    <!-- Three.js Kitabxanası -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
     <script>
         // --- SEHNƏ VƏ KAMERA ---
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x87CEEB); // Səma rəngi
-        scene.fog = new THREE.Fog(0x87CEEB, 20, 60);
+        // Şəkildəki qürub çağı narıncı səma rəngi
+        scene.background = new THREE.Color(0xd98236); 
+        scene.fog = new THREE.Fog(0xd98236, 30, 90);
 
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
         document.body.appendChild(renderer.domElement);
 
-        // --- İŞIQLANDIRMA ---
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        // --- QÜRUB İŞIQLANDIRMASI ---
+        const ambientLight = new THREE.AmbientLight(0xffd8b1, 0.7);
         scene.add(ambientLight);
 
-        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        dirLight.position.set(20, 40, 20);
-        scene.add(dirLight);
+        const sunLight = new THREE.DirectionalLight(0xff8c00, 1.2);
+        sunLight.position.set(-40, 30, -40);
+        scene.add(sunLight);
 
-        // --- MATERİALLAR VƏ GEOMETRİYA ---
+        // --- MATERİALLAR ---
         const boxGeo = new THREE.BoxGeometry(1, 1, 1);
         
-        const grassMat = new THREE.MeshLambertMaterial({ color: 0x557a2b });
-        const roadMat = new THREE.MeshLambertMaterial({ color: 0x555555 });
-        const wallMat = new THREE.MeshLambertMaterial({ color: 0xa0522d });
-        const roofMat = new THREE.MeshLambertMaterial({ color: 0x8b0000 });
-        const doorMat = new THREE.MeshLambertMaterial({ color: 0x4a2e00 });
-        const woodMat = new THREE.MeshLambertMaterial({ color: 0x3d2817 });
-        const leafMat = new THREE.MeshLambertMaterial({ color: 0x2e8b57 });
+        const grassMat = new THREE.MeshLambertMaterial({ color: 0x477826 });
+        const stoneMat = new THREE.MeshLambertMaterial({ color: 0x6e6e6e });
+        const darkStoneMat = new THREE.MeshLambertMaterial({ color: 0x4a4a4a });
+        const woodMat = new THREE.MeshLambertMaterial({ color: 0x5c3a21 });
+        const plankMat = new THREE.MeshLambertMaterial({ color: 0x8b5a2b });
+        const roofMat = new THREE.MeshLambertMaterial({ color: 0x7c211e });
+        const blueRoofMat = new THREE.MeshLambertMaterial({ color: 0x1d3557 });
+        const waterMat = new THREE.MeshLambertMaterial({ color: 0x2b6589, transparent: true, opacity: 0.8 });
+        const leafMat = new THREE.MeshLambertMaterial({ color: 0x2d5a1e });
+        const cropMat = new THREE.MeshLambertMaterial({ color: 0x98a12e });
 
-        // --- XƏRİTƏ: KÜÇƏLƏR VƏ EVLƏR ---
-        const mapSize = 40;
+        // --- ARAZİ VƏ ÇAY (LƏNDŞAFT) ---
+        const worldSize = 70;
+        
+        for (let x = -worldSize/2; x < worldSize/2; x++) {
+            for (let z = -worldSize/2; z < worldSize/2; z++) {
+                // Şəkildəki çay yatağı
+                const isRiver = Math.sin(x * 0.1) * 6 + (x * 0.4) > z - 5 && Math.sin(x * 0.1) * 6 + (x * 0.4) < z + 2;
+                
+                if (isRiver) {
+                    const water = new THREE.Mesh(boxGeo, waterMat);
+                    water.position.set(x, -0.2, z);
+                    scene.add(water);
+                } else {
+                    // Təpəlik relied
+                    let h = Math.floor(Math.sin(x * 0.1) * Math.cos(z * 0.1) * 2);
+                    
+                    // Qalanın yerləşdiyi yüksəklik
+                    if (x > -5 && x < 25 && z > -5 && z < 25) h = Math.max(h, 2);
 
-        // Torpaq / Otluq zəmin
-        for (let x = -mapSize; x < mapSize; x++) {
-            for (let z = -mapSize; z < mapSize; z++) {
-                const block = new THREE.Mesh(boxGeo, grassMat);
-                block.position.set(x, 0, z);
-                scene.add(block);
+                    for (let y = 0; y <= h; y++) {
+                        const mat = (y === h) ? grassMat : stoneMat;
+                        const block = new THREE.Mesh(boxGeo, mat);
+                        block.position.set(x, y, z);
+                        scene.add(block);
+                    }
+                }
             }
         }
 
-        // Küçə (Yol) Yaratmaq
-        for (let i = -mapSize; i < mapSize; i++) {
-            // Əsas yol
-            const road1 = new THREE.Mesh(boxGeo, roadMat);
-            road1.position.set(i, 0.01, 0);
-            scene.add(road1);
+        // --- İSTİNADƏ UĞUN QALA VƏ KÖRPÜ ---
+        function buildCastle() {
+            const baseX = 5, baseZ = 5, baseH = 2;
 
-            // Kəsişən yol
-            const road2 = new THREE.Mesh(boxGeo, roadMat);
-            road2.position.set(0, 0.01, i);
-            scene.add(road2);
-        }
-
-        // Ev Yaratma Funksiyası (İçinə girmək üçün daxili boşluq və qapı açır)
-        function createHouse(startX, startZ) {
-            const width = 6;
-            const height = 4;
-            const depth = 6;
-
-            for (let x = 0; x < width; x++) {
-                for (let y = 1; y <= height; y++) {
-                    for (let z = 0; z < depth; z++) {
-                        // Divarlar (İçi boş olsun deyə yalnız kənarlar)
-                        const isEdge = x === 0 || x === width - 1 || z === 0 || z === depth - 1;
-                        const isRoof = y === height;
-                        
-                        // Qapı üçün yer açmaq (Ön divarın ortasında 2 blok hündürlük)
-                        const isDoorSpace = (z === 0 && (x === 2 || x === 3) && (y === 1 || y === 2));
-
-                        if (isDoorSpace) continue; // Qapı yerini boş saxla (içəri girmək üçün)
-
-                        if (isRoof) {
-                            const roofBlock = new THREE.Mesh(boxGeo, roofMat);
-                            roofBlock.position.set(startX + x, y, startZ + z);
-                            scene.add(roofBlock);
-                        } else if (isEdge) {
-                            const wallBlock = new THREE.Mesh(boxGeo, wallMat);
-                            wallBlock.position.set(startX + x, y, startZ + z);
-                            scene.add(wallBlock);
+            // Qala Divarları (Böyük həyət)
+            for (let x = -2; x <= 18; x++) {
+                for (let z = -2; z <= 18; z++) {
+                    const isWall = x === -2 || x === 18 || z === -2 || z === 18;
+                    if (isWall && !(z === -2 && (x >= 6 && x <= 10))) { // Qapı yeri
+                        for (let y = 1; y <= 6; y++) {
+                            const block = new THREE.Mesh(boxGeo, stoneMat);
+                            block.position.set(baseX + x, baseH + y, baseZ + z);
+                            scene.add(block);
                         }
                     }
                 }
             }
-        }
 
-        // Ağac Yaratma Funksiyası
-        function createTree(x, z) {
-            for (let y = 1; y <= 3; y++) {
-                const trunk = new THREE.Mesh(boxGeo, woodMat);
-                trunk.position.set(x, y, z);
-                scene.add(trunk);
-            }
-            for (let lx = -1; lx <= 1; lx++) {
-                for (let ly = 4; ly <= 5; ly++) {
-                    for (let lz = -1; lz <= 1; lz++) {
-                        const leaves = new THREE.Mesh(boxGeo, leafMat);
-                        leaves.position.set(x + lx, ly, z + lz);
-                        scene.add(leaves);
+            // Qala Bürc qüllələri (Künclərdə)
+            const towers = [[-2,-2], [18,-2], [-2,18], [18,18], [3,5], [13,5]];
+            towers.forEach(([tx, tz]) => {
+                for (let y = 1; y <= 12; y++) {
+                    for (let bx = -1; bx <= 1; bx++) {
+                        for (let bz = -1; bz <= 1; bz++) {
+                            const block = new THREE.Mesh(boxGeo, darkStoneMat);
+                            block.position.set(baseX + tx + bx, baseH + y, baseZ + tz + bz);
+                            scene.add(block);
+                        }
                     }
+                }
+                // Bürcün Qırmızı/Göy damı
+                for (let ry = 0; ry < 4; ry++) {
+                    const rBlock = new THREE.Mesh(boxGeo, (tx > 8) ? blueRoofMat : roofMat);
+                    rBlock.position.set(baseX + tx, baseH + 13 + ry, baseZ + tz);
+                    scene.add(rBlock);
+                }
+            });
+
+            // Əsas Qəsrin Mərkəzi Binası
+            for (let x = 3; x <= 13; x++) {
+                for (let z = 8; z <= 16; z++) {
+                    for (let y = 1; y <= 10; y++) {
+                        if (x === 3 || x === 13 || z === 8 || z === 16 || y === 10) {
+                            const block = new THREE.Mesh(boxGeo, stoneMat);
+                            block.position.set(baseX + x, baseH + y, baseZ + z);
+                            scene.add(block);
+                        }
+                    }
+                }
+            }
+
+            // Qalanın Giriş Körpüsü (Drawbridge)
+            for (let z = -6; z <= -2; z++) {
+                for (let x = 7; x <= 9; x++) {
+                    const bridge = new THREE.Mesh(boxGeo, plankMat);
+                    bridge.position.set(baseX + x, baseH + 0.5, baseZ + z);
+                    scene.add(bridge);
                 }
             }
         }
 
-        // Xəritəyə evlər və ağaclar əlavə etmək
-        createHouse(3, 3);
-        createHouse(-9, 3);
-        createHouse(3, -9);
+        // --- KƏND EVLƏRİ VƏ FERMALAR ---
+        function buildVillage() {
+            const houses = [[-15, -10], [-12, -20], [-22, -12]];
+            houses.forEach(([hx, hz]) => {
+                for (let x = 0; x < 5; x++) {
+                    for (let z = 0; z < 5; z++) {
+                        for (let y = 1; y <= 4; y++) {
+                            const isEdge = x === 0 || x === 4 || z === 0 || z === 4;
+                            const isDoor = (z === 0 && x === 2 && y <= 2);
+                            if (isDoor) continue; // İçəri girmək üçün acıq qapı
 
-        createTree(10, 10);
-        createTree(-10, 10);
-        createTree(10, -10);
+                            if (y === 4) {
+                                const roof = new THREE.Mesh(boxGeo, roofMat);
+                                roof.position.set(hx + x, y, hz + z);
+                                scene.add(roof);
+                            } else if (isEdge) {
+                                const wall = new THREE.Mesh(boxGeo, woodMat);
+                                wall.position.set(hx + x, y, hz + z);
+                                scene.add(wall);
+                            }
+                        }
+                    }
+                }
+            });
 
-        // --- PLAYER (OYUNÇU) POZİSİYASI ---
-        camera.position.set(0, 2, 8);
-        let yaw = 0, pitch = 0;
+            // Əkin sahələri (Fermalar)
+            for (let x = -20; x <= -10; x++) {
+                for (let z = -5; z <= -2; z++) {
+                    const crop = new THREE.Mesh(boxGeo, cropMat);
+                    crop.position.set(x, 0.2, z);
+                    scene.add(crop);
+                }
+            }
+        }
 
-        // --- MOBİL İDARƏETMƏ (COYSTİK VƏ TOXUNMA) ---
+        // --- AĞACLAR ---
+        function buildTrees() {
+            const positions = [[-25, 10], [-18, 15], [20, -15], [25, 5], [-5, -25]];
+            positions.forEach(([tx, tz]) => {
+                for (let y = 1; y <= 4; y++) {
+                    const log = new THREE.Mesh(boxGeo, woodMat);
+                    log.position.set(tx, y, tz);
+                    scene.add(log);
+                }
+                for (let lx = -2; lx <= 2; lx++) {
+                    for (let lz = -2; lz <= 2; lz++) {
+                        for (let ly = 4; ly <= 6; ly++) {
+                            const leaf = new THREE.Mesh(boxGeo, leafMat);
+                            leaf.position.set(tx + lx, ly, tz + lz);
+                            scene.add(leaf);
+                        }
+                    }
+                }
+            });
+        }
+
+        buildCastle();
+        buildVillage();
+        buildTrees();
+
+        // --- OYUNÇU VƏ MOBİL İDARƏƏTMƏ ---
+        camera.position.set(-10, 8, -20);
+        let yaw = Math.PI / 4, pitch = -0.2;
+
         const joystickZone = document.getElementById('joystick-zone');
         const joystickKnob = document.getElementById('joystick-knob');
         const touchLook = document.getElementById('touch-look');
@@ -192,7 +263,6 @@
         let joystickActive = false;
         let joyStartX = 0, joyStartY = 0;
 
-        // Coystik Dinamikası
         joystickZone.addEventListener('touchstart', (e) => {
             joystickActive = true;
             const touch = e.touches[0];
@@ -212,7 +282,6 @@
             let moveY = Math.sin(angle) * dist;
 
             joystickKnob.style.transform = `translate(${moveX}px, ${moveY}px)`;
-
             moveData.x = moveX / 40;
             moveData.y = moveY / 40;
         });
@@ -226,9 +295,7 @@
         joystickZone.addEventListener('touchend', resetJoystick);
         joystickZone.addEventListener('touchcancel', resetJoystick);
 
-        // Etrafa Baxış (Kamera İdarəetməsi)
         let lastTouchX = 0, lastTouchY = 0;
-
         touchLook.addEventListener('touchstart', (e) => {
             const touch = e.touches[0];
             lastTouchX = touch.clientX;
@@ -242,7 +309,6 @@
 
             yaw -= dx * 0.005;
             pitch -= dy * 0.005;
-
             pitch = Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, pitch));
 
             camera.rotation.order = "YXZ";
@@ -253,14 +319,13 @@
             lastTouchY = touch.clientY;
         });
 
-        // --- OYUN DÖVRÜ (ANIMATION LOOP) ---
-        const speed = 0.1;
+        // --- ANIMASIYA DÖVRÜ ---
+        const speed = 0.15;
 
         function animate() {
             requestAnimationFrame(animate);
 
             if (moveData.x !== 0 || moveData.y !== 0) {
-                // Kameranın baxış istiqamətinə uyğun hərəkət
                 const forwardX = -Math.sin(yaw);
                 const forwardZ = -Math.cos(yaw);
                 const sideX = Math.cos(yaw);
@@ -270,13 +335,9 @@
                 camera.position.z += (forwardZ * (-moveData.y) + sideZ * moveData.x) * speed;
             }
 
-            // Hündürlüyü sabit saxlamaq (Yeriş səviyyəsi)
-            camera.position.y = 2;
-
             renderer.render(scene, camera);
         }
 
-        // Ekran ölçüsü dəyişdikdə uyğunlaşdırma
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
