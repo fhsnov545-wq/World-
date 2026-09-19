@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>3D Minecraft Style World</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            touch-action: none;
+            background-color: #87CEEB;
+            font-family: sans-serif;
+        }
+        canvas {
+            display: block;
+        }
+        /* Mobil İdarəetmə Düymələri */
+        #joystick-zone {
+            position: absolute;
+            bottom: 30px;
+            left: 30px;
+            width: 120px;
+            height: 120px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            border-radius: 50%;
+            touch-action: none;
+        }
+        #joystick-knob {
+            position: absolute;
+            top: 35px;
+            left: 35px;
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 50%;
+        }
+        #touch-look {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 50vw;
+            height: 100vh;
+        }
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 10px;
+            height: 10px;
+            color: white;
+            font-size: 20px;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="crosshair">+</div>
+    <div id="joystick-zone"><div id="joystick-knob"></div></div>
+    <div id="touch-look"></div>
+
+    <!-- Three.js Kitabxanası -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <script>
+        // --- SEHNƏ VƏ KAMERA ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87CEEB); // Səma rəngi
+        scene.fog = new THREE.Fog(0x87CEEB, 20, 60);
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // --- İŞIQLANDIRMA ---
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(20, 40, 20);
+        scene.add(dirLight);
+
+        // --- MATERİALLAR VƏ GEOMETRİYA ---
+        const boxGeo = new THREE.BoxGeometry(1, 1, 1);
+        
+        const grassMat = new THREE.MeshLambertMaterial({ color: 0x557a2b });
+        const roadMat = new THREE.MeshLambertMaterial({ color: 0x555555 });
+        const wallMat = new THREE.MeshLambertMaterial({ color: 0xa0522d });
+        const roofMat = new THREE.MeshLambertMaterial({ color: 0x8b0000 });
+        const doorMat = new THREE.MeshLambertMaterial({ color: 0x4a2e00 });
+        const woodMat = new THREE.MeshLambertMaterial({ color: 0x3d2817 });
+        const leafMat = new THREE.MeshLambertMaterial({ color: 0x2e8b57 });
+
+        // --- XƏRİTƏ: KÜÇƏLƏR VƏ EVLƏR ---
+        const mapSize = 40;
+
+        // Torpaq / Otluq zəmin
+        for (let x = -mapSize; x < mapSize; x++) {
+            for (let z = -mapSize; z < mapSize; z++) {
+                const block = new THREE.Mesh(boxGeo, grassMat);
+                block.position.set(x, 0, z);
+                scene.add(block);
+            }
+        }
+
+        // Küçə (Yol) Yaratmaq
+        for (let i = -mapSize; i < mapSize; i++) {
+            // Əsas yol
+            const road1 = new THREE.Mesh(boxGeo, roadMat);
+            road1.position.set(i, 0.01, 0);
+            scene.add(road1);
+
+            // Kəsişən yol
+            const road2 = new THREE.Mesh(boxGeo, roadMat);
+            road2.position.set(0, 0.01, i);
+            scene.add(road2);
+        }
+
+        // Ev Yaratma Funksiyası (İçinə girmək üçün daxili boşluq və qapı açır)
+        function createHouse(startX, startZ) {
+            const width = 6;
+            const height = 4;
+            const depth = 6;
+
+            for (let x = 0; x < width; x++) {
+                for (let y = 1; y <= height; y++) {
+                    for (let z = 0; z < depth; z++) {
+                        // Divarlar (İçi boş olsun deyə yalnız kənarlar)
+                        const isEdge = x === 0 || x === width - 1 || z === 0 || z === depth - 1;
+                        const isRoof = y === height;
+                        
+                        // Qapı üçün yer açmaq (Ön divarın ortasında 2 blok hündürlük)
+                        const isDoorSpace = (z === 0 && (x === 2 || x === 3) && (y === 1 || y === 2));
+
+                        if (isDoorSpace) continue; // Qapı yerini boş saxla (içəri girmək üçün)
+
+                        if (isRoof) {
+                            const roofBlock = new THREE.Mesh(boxGeo, roofMat);
+                            roofBlock.position.set(startX + x, y, startZ + z);
+                            scene.add(roofBlock);
+                        } else if (isEdge) {
+                            const wallBlock = new THREE.Mesh(boxGeo, wallMat);
+                            wallBlock.position.set(startX + x, y, startZ + z);
+                            scene.add(wallBlock);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Ağac Yaratma Funksiyası
+        function createTree(x, z) {
+            for (let y = 1; y <= 3; y++) {
+                const trunk = new THREE.Mesh(boxGeo, woodMat);
+                trunk.position.set(x, y, z);
+                scene.add(trunk);
+            }
+            for (let lx = -1; lx <= 1; lx++) {
+                for (let ly = 4; ly <= 5; ly++) {
+                    for (let lz = -1; lz <= 1; lz++) {
+                        const leaves = new THREE.Mesh(boxGeo, leafMat);
+                        leaves.position.set(x + lx, ly, z + lz);
+                        scene.add(leaves);
+                    }
+                }
+            }
+        }
+
+        // Xəritəyə evlər və ağaclar əlavə etmək
+        createHouse(3, 3);
+        createHouse(-9, 3);
+        createHouse(3, -9);
+
+        createTree(10, 10);
+        createTree(-10, 10);
+        createTree(10, -10);
+
+        // --- PLAYER (OYUNÇU) POZİSİYASI ---
+        camera.position.set(0, 2, 8);
+        let yaw = 0, pitch = 0;
+
+        // --- MOBİL İDARƏETMƏ (COYSTİK VƏ TOXUNMA) ---
+        const joystickZone = document.getElementById('joystick-zone');
+        const joystickKnob = document.getElementById('joystick-knob');
+        const touchLook = document.getElementById('touch-look');
+
+        let moveData = { x: 0, y: 0 };
+        let joystickActive = false;
+        let joyStartX = 0, joyStartY = 0;
+
+        // Coystik Dinamikası
+        joystickZone.addEventListener('touchstart', (e) => {
+            joystickActive = true;
+            const touch = e.touches[0];
+            joyStartX = touch.clientX;
+            joyStartY = touch.clientY;
+        });
+
+        joystickZone.addEventListener('touchmove', (e) => {
+            if (!joystickActive) return;
+            const touch = e.touches[0];
+            let dx = touch.clientX - joyStartX;
+            let dy = touch.clientY - joyStartY;
+            let dist = Math.min(Math.hypot(dx, dy), 40);
+            let angle = Math.atan2(dy, dx);
+
+            let moveX = Math.cos(angle) * dist;
+            let moveY = Math.sin(angle) * dist;
+
+            joystickKnob.style.transform = `translate(${moveX}px, ${moveY}px)`;
+
+            moveData.x = moveX / 40;
+            moveData.y = moveY / 40;
+        });
+
+        const resetJoystick = () => {
+            joystickActive = false;
+            moveData = { x: 0, y: 0 };
+            joystickKnob.style.transform = `translate(0px, 0px)`;
+        };
+
+        joystickZone.addEventListener('touchend', resetJoystick);
+        joystickZone.addEventListener('touchcancel', resetJoystick);
+
+        // Etrafa Baxış (Kamera İdarəetməsi)
+        let lastTouchX = 0, lastTouchY = 0;
+
+        touchLook.addEventListener('touchstart', (e) => {
+            const touch = e.touches[0];
+            lastTouchX = touch.clientX;
+            lastTouchY = touch.clientY;
+        });
+
+        touchLook.addEventListener('touchmove', (e) => {
+            const touch = e.touches[0];
+            let dx = touch.clientX - lastTouchX;
+            let dy = touch.clientY - lastTouchY;
+
+            yaw -= dx * 0.005;
+            pitch -= dy * 0.005;
+
+            pitch = Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, pitch));
+
+            camera.rotation.order = "YXZ";
+            camera.rotation.y = yaw;
+            camera.rotation.x = pitch;
+
+            lastTouchX = touch.clientX;
+            lastTouchY = touch.clientY;
+        });
+
+        // --- OYUN DÖVRÜ (ANIMATION LOOP) ---
+        const speed = 0.1;
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (moveData.x !== 0 || moveData.y !== 0) {
+                // Kameranın baxış istiqamətinə uyğun hərəkət
+                const forwardX = -Math.sin(yaw);
+                const forwardZ = -Math.cos(yaw);
+                const sideX = Math.cos(yaw);
+                const sideZ = -Math.sin(yaw);
+
+                camera.position.x += (forwardX * (-moveData.y) + sideX * moveData.x) * speed;
+                camera.position.z += (forwardZ * (-moveData.y) + sideZ * moveData.x) * speed;
+            }
+
+            // Hündürlüyü sabit saxlamaq (Yeriş səviyyəsi)
+            camera.position.y = 2;
+
+            renderer.render(scene, camera);
+        }
+
+        // Ekran ölçüsü dəyişdikdə uyğunlaşdırma
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
+    </script>
+</body>
+</html>
